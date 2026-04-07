@@ -31,8 +31,15 @@ if shopify_file or meta_file or google_file:
     # Process Meta ONLY if uploaded
     if meta_file:
         df_meta = pd.read_csv(meta_file)
-        # Updated to your exact CSV header: 'Amount spent (USD)'
-        meta_spend = df_meta['Amount spent (USD)'].sum() if 'Amount spent (USD)' in df_meta.columns else 0
+        # Search for variations of the "Amount Spent" column
+        if 'Amount spent (USD)' in df_meta.columns:
+            meta_spend = df_meta['Amount spent (USD)'].sum()
+        elif 'Amount Spent' in df_meta.columns:
+            meta_spend = df_meta['Amount Spent'].sum()
+        elif 'Amount spent' in df_meta.columns:
+            meta_spend = df_meta['Amount spent'].sum()
+        else:
+            meta_spend = 0
 
     # Process Google ONLY if uploaded
     if google_file:
@@ -67,18 +74,27 @@ if shopify_file or meta_file or google_file:
     if df_meta is not None:
         st.markdown("### Top Meta Ads by Spend")
         
-        if 'Ad name' in df_meta.columns and 'Amount spent (USD)' in df_meta.columns:
+        # Dynamically find the right column names for Ad Name and Spend
+        ad_name_col = 'Ad name' if 'Ad name' in df_meta.columns else ('Ad Name' if 'Ad Name' in df_meta.columns else None)
+        spend_col = 'Amount spent (USD)' if 'Amount spent (USD)' in df_meta.columns else ('Amount Spent' if 'Amount Spent' in df_meta.columns else ('Amount spent' if 'Amount spent' in df_meta.columns else None))
+        
+        # If we successfully found both required columns, build the table!
+        if ad_name_col and spend_col:
             # Sort the dataframe to show highest spenders first
-            top_ads = df_meta.sort_values(by='Amount spent (USD)', ascending=False).head(10)
+            top_ads = df_meta.sort_values(by=spend_col, ascending=False).head(10)
             
             # Start with the columns we KNOW exist
-            display_cols = ['Ad name', 'Amount spent (USD)']
+            display_cols = [ad_name_col, spend_col]
             
-            # Add CPA if it exists
+            # Defensively add CPA if it exists
             if 'Cost per results' in df_meta.columns:
                 display_cols.append('Cost per results')
+            elif 'Cost per result' in df_meta.columns:
+                display_cols.append('Cost per result')
+            elif 'CPA' in df_meta.columns:
+                display_cols.append('CPA')
                 
-            # Defensively add CPC if it exists (checks for common Meta export names)
+            # Defensively add CPC if it exists
             if 'CPC (all)' in df_meta.columns:
                 display_cols.append('CPC (all)')
             elif 'CPC (cost per link click)' in df_meta.columns:
@@ -86,14 +102,16 @@ if shopify_file or meta_file or google_file:
             elif 'CPC' in df_meta.columns:
                 display_cols.append('CPC')
             
-            # Display as an interactive dataframe table using our dynamic columns
+            # Display as an interactive dataframe table
             st.dataframe(
                 top_ads[display_cols], 
                 use_container_width=True,
                 hide_index=True
             )
         else:
-            st.warning("Could not find 'Ad name' or 'Amount spent (USD)' columns in the Meta CSV.")
+            # The X-Ray Vision Tool
+            st.warning("Could not find an 'Ad name' or 'Amount spent' column.")
+            st.info(f"**X-Ray Vision!** Here are the exact columns I see in the file you uploaded: {df_meta.columns.tolist()}")
 
 else:
     # Instructions displayed when no files are uploaded
