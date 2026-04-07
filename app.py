@@ -15,7 +15,6 @@ meta_file = st.sidebar.file_uploader("Upload Meta Ads Spend", type=["csv"])
 google_file = st.sidebar.file_uploader("Upload Google Ads Spend", type=["csv"])
 
 # --- 3. DATA PROCESSING & BLENDING ---
-# CHANGED: The dashboard now loads if AT LEAST ONE file is uploaded
 if shopify_file or meta_file or google_file:
     
     # Set default values to 0 just in case a file is missing
@@ -32,7 +31,8 @@ if shopify_file or meta_file or google_file:
     # Process Meta ONLY if uploaded
     if meta_file:
         df_meta = pd.read_csv(meta_file)
-        meta_spend = df_meta['Amount Spent'].sum() if 'Amount Spent' in df_meta.columns else 1981
+        # Updated to your exact CSV header: 'Amount spent (USD)'
+        meta_spend = df_meta['Amount spent (USD)'].sum() if 'Amount spent (USD)' in df_meta.columns else 0
 
     # Process Google ONLY if uploaded
     if google_file:
@@ -67,18 +67,33 @@ if shopify_file or meta_file or google_file:
     if df_meta is not None:
         st.markdown("### Top Meta Ads by Spend")
         
-        if 'Ad Name' in df_meta.columns and 'Amount Spent' in df_meta.columns:
+        if 'Ad name' in df_meta.columns and 'Amount spent (USD)' in df_meta.columns:
             # Sort the dataframe to show highest spenders first
-            top_ads = df_meta.sort_values(by='Amount Spent', ascending=False).head(10)
+            top_ads = df_meta.sort_values(by='Amount spent (USD)', ascending=False).head(10)
             
-            # Display as an interactive dataframe table
+            # Start with the columns we KNOW exist
+            display_cols = ['Ad name', 'Amount spent (USD)']
+            
+            # Add CPA if it exists
+            if 'Cost per results' in df_meta.columns:
+                display_cols.append('Cost per results')
+                
+            # Defensively add CPC if it exists (checks for common Meta export names)
+            if 'CPC (all)' in df_meta.columns:
+                display_cols.append('CPC (all)')
+            elif 'CPC (cost per link click)' in df_meta.columns:
+                display_cols.append('CPC (cost per link click)')
+            elif 'CPC' in df_meta.columns:
+                display_cols.append('CPC')
+            
+            # Display as an interactive dataframe table using our dynamic columns
             st.dataframe(
-                top_ads[['Ad Name', 'Amount Spent', 'CPA', 'CPC']], 
+                top_ads[display_cols], 
                 use_container_width=True,
                 hide_index=True
             )
         else:
-            st.warning("Could not find 'Ad Name' or 'Amount Spent' columns in the Meta CSV.")
+            st.warning("Could not find 'Ad name' or 'Amount spent (USD)' columns in the Meta CSV.")
 
 else:
     # Instructions displayed when no files are uploaded
